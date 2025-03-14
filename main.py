@@ -1,68 +1,38 @@
 import backtrader as bt
 import pandas as pd
-import numpy as np
 from SmaCross import SmaCross
+from SMAStrategy import SMAStrategy
+from BollingerBandsStrategy import BollingerBandsStrategy
+from RSIStrategy import RSIStrategy
+from SMAVolumeStrategy import SMAVolumeStrategy
 
 
-# 生成模拟数据
-def generate_mock_data():
-    start_date = pd.Timestamp('2020-01-01')
-    end_date = pd.Timestamp('2021-01-01')
-    dates = pd.date_range(start=start_date, end=end_date)
-    num_days = len(dates)
-
-    # 模拟开盘价、最高价、最低价、收盘价和成交量
-    open_prices = np.random.uniform(10, 20, num_days)
-    high_prices = open_prices + np.random.uniform(0, 2, num_days)
-    low_prices = open_prices - np.random.uniform(0, 2, num_days)
-    close_prices = np.random.uniform(low_prices, high_prices)
-    volumes = np.random.randint(100000, 1000000, num_days)
-
-    data = {
-        'open': open_prices,
-        'high': high_prices,
-        'low': low_prices,
-        'close': close_prices,
-        'volume': volumes
-    }
-
-    df = pd.DataFrame(data, index=dates)
-    return df
-
-
-# 主函数
-def main():
-    # 创建 Cerebro 引擎
+def run_backtest(strategy):
     cerebro = bt.Cerebro()
+    cerebro.addstrategy(strategy)
 
-    # 添加策略
-    cerebro.addstrategy(SmaCross)
+    try:
+        data = pd.read_csv('your_stock_data.csv', parse_dates=True, index_col=0)
+        data = bt.feeds.PandasData(dataname=data)
+        cerebro.adddata(data)
+    except FileNotFoundError:
+        print("错误：未找到数据文件 'your_stock_data.csv'，请检查文件路径。")
+        return
 
-    # 生成模拟数据
-    mock_data = generate_mock_data()
-    data = bt.feeds.PandasData(dataname=mock_data)
-
-    # 将数据添加到 Cerebro 引擎
-    cerebro.adddata(data)
-
-    # 设置初始资金
     cerebro.broker.setcash(100000.0)
-
-    # 设置佣金
     cerebro.broker.setcommission(commission=0.001)
 
-    # 打印初始资金
     print('初始资金: %.2f' % cerebro.broker.getvalue())
-
-    # 运行回测
     cerebro.run()
-
-    # 打印最终资金
     print('最终资金: %.2f' % cerebro.broker.getvalue())
+    try:
+        cerebro.plot()
+    except Exception as e:
+        print(f"绘制图表时出错: {e}")
 
-    # 绘制回测结果
-    cerebro.plot()
 
-
-if __name__ == '__main__':
-    main()
+# 运行不同策略的回测
+strategies = [SmaCross, SMAStrategy, BollingerBandsStrategy, RSIStrategy, SMAVolumeStrategy]
+for strategy in strategies:
+    print(f"正在运行 {strategy.__name__} 策略回测...")
+    run_backtest(strategy)
