@@ -1,10 +1,10 @@
 import backtrader as bt
 import pandas as pd
-from SmaCross import SmaCross
-from SMAStrategy import SMAStrategy
-from BollingerBandsStrategy import BollingerBandsStrategy
-from RSIStrategy import RSIStrategy
-from SMAVolumeStrategy import SMAVolumeStrategy
+from strategies.SmaCross import SmaCross
+from strategies.SMAStrategy import SMAStrategy
+from strategies.BollingerBandsStrategy import BollingerBandsStrategy
+from strategies.RSIStrategy import RSIStrategy
+from strategies.SMAVolumeStrategy import SMAVolumeStrategy
 
 
 def run_backtest(strategy):
