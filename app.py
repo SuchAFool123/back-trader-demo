@@ -9,11 +9,10 @@ import threading
 app = Flask(__name__, template_folder='./templates/')
 sock = Sock(app)
 
-# 全局变量用于控制交易机器人
-running = False
-stop_event = threading.Event()
 # 手动维护的连接列表
 connections = []
+# 维护每个机器人的停止事件
+stop_events = {}
 
 # 设置 tushare token
 ts.set_token('85e76ced5ed9d12e83f7e412305b0566ae65840ed47d064aa04a67ee')
@@ -82,7 +81,7 @@ class RealTimeStrategy(bt.Strategy):
                         print(f"发送消息到客户端时出错: {e}")
 
 
-def get_realtime_data(symbol):
+def get_realtime_data(symbol, stop_event):
     buffer = []
     min_period = 20  # 最小数据周期
     while not stop_event.is_set():
@@ -116,10 +115,7 @@ def get_realtime_data(symbol):
             time.sleep(60)
 
 
-def run_trading_bot(initial_cash, commission, stock_code):
-    global running
-    running = True
-
+def run_trading_bot(initial_cash, commission, stock_code, stop_event):
     # 创建 Cerebro 引擎
     cerebro = bt.Cerebro()
 
@@ -127,7 +123,7 @@ def run_trading_bot(initial_cash, commission, stock_code):
     cerebro.addstrategy(RealTimeStrategy)
 
     # 创建自定义数据馈送
-    data_feed = bt.feeds.PandasData(dataname=pd.DataFrame(get_realtime_data(stock_code)))
+    data_feed = bt.feeds.PandasData(dataname=pd.DataFrame(get_realtime_data(stock_code, stop_event)))
     cerebro.adddata(data_feed)
 
     # 设置初始资金
@@ -142,32 +138,33 @@ def run_trading_bot(initial_cash, commission, stock_code):
     cerebro.run()
 
     print('最终资金: %.2f' % cerebro.broker.getvalue())
-    running = False
+
+
+@sock.route('/ws')
+def echo(ws):
+    initial_cash = float(request.args.get('initialCash', 100000))
+    commission = float(request.args.get('commission', 0.001))
+    stock_code = request.args.get('stockCode', '000858.SZ')
+    connections.append(ws)
+    stop_event = threading.Event()
+    stop_events[ws] = stop_event
+    try:
+        threading.Thread(target=run_trading_bot, args=(initial_cash, commission, stock_code, stop_event)).start()
+        while True:
+            data = ws.receive()
+    except Exception:
+        pass
+    finally:
+        stop_event.set()
+        if ws in connections:
+            connections.remove(ws)
+        if ws in stop_events:
+            del stop_events[ws]
 
 
 @app.route('/')
 def index():
     return render_template('app.html')
-
-
-@sock.route('/ws')
-def echo(ws):
-    global running
-    if not running:
-        stop_event.clear()
-        initial_cash = float(request.args.get('initialCash', 100000))
-        commission = float(request.args.get('commission', 0.001))
-        stock_code = request.args.get('stockCode', '000858.SZ')
-        threading.Thread(target=run_trading_bot, args=(initial_cash, commission, stock_code)).start()
-    try:
-        connections.append(ws)
-        while True:
-            data = ws.receive()
-    except Exception:
-        stop_event.set()
-    finally:
-        if ws in connections:
-            connections.remove(ws)
 
 
 if __name__ == '__main__':
