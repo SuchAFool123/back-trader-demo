@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backtrader 交易机器人管理端</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #007BFF;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            margin-right: 10px;
+            font-size: 14px;
+        }
+
+        .input-group input {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            background-color: #212121;
+            color: #e0e0e0;
+            margin-right: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0 5px;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #log {
+            margin-top: 30px;
+            border: 1px solid #333;
+            padding: 20px;
+            height: 300px;
+            overflow-y: auto;
+            background-color: #1e1e1e;
+            border-radius: 4px;
+        }
+
+        #log p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Backtrader 交易机器人管理端</h1>
+    <div class="input-group">
+        <label for="initialCash">初始资金:</label>
+        <input type="number" id="initialCash" value="100000" />
+        <label for="commission">佣金比例:</label>
+        <input type="number" id="commission" value="0.001" step="0.0001" />
+        <label for="stockCode">股票代码:</label>
+        <input type="text" id="stockCode" value="600519.SH" />
+    </div>
+    <div class="button-group">
+        <button id="startButton">启动机器人</button>
+        <button id="stopButton">停止机器人</button>
+    </div>
+    <div id="log">日志将显示在这里...</div>
+
+    <script>
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const log = document.getElementById('log');
+        const initialCashInput = document.getElementById('initialCash');
+        const commissionInput = document.getElementById('commission');
+        const stockCodeInput = document.getElementById('stockCode');
+
+        let socket;
+
+        startButton.addEventListener('click', () => {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                log.innerHTML += '<p>机器人已经在运行中...</p>';
+                return;
+            }
+            const initialCash = parseFloat(initialCashInput.value);
+            const commission = parseFloat(commissionInput.value);
+            const stockCode = stockCodeInput.value;
+
+            const url = `ws://localhost:5000/ws?initialCash=${initialCash}&commission=${commission}&stockCode=${stockCode}`;
+            socket = new WebSocket(url);
+
+            socket.onopen = () => {
+                log.innerHTML += '<p>机器人已启动...</p>';
+            };
+            socket.onmessage = (event) => {
+                log.innerHTML += `<p>${event.data}</p>`;
+            };
+            socket.onclose = () => {
+                log.innerHTML += '<p>机器人已停止...</p>';
+            };
+        });
+
+        stopButton.addEventListener('click', () => {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.close();
+            }
+        });
+    </script>
+</body>
+
+</html>
