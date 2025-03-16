@@ -5,6 +5,7 @@ import tushare as ts
 import time
 import pandas as pd
 import threading
+from datetime import datetime
 
 app = Flask(__name__, template_folder='./templates/')
 sock = Sock(app)
@@ -34,10 +35,15 @@ class RealTimeStrategy(bt.Strategy):
             self.data.close, period=self.params.long_period)
         self.crossover = bt.indicators.CrossOver(self.short_sma, self.long_sma)
         self.stop_loss_price = None
+        self.data_ready = False
 
     def next(self):
-        if len(self.data) < self.params.long_period:
-            return  # 数据量不足，跳过
+        if not self.data_ready:
+            if len(self.data) >= self.params.long_period:
+                self.data_ready = True
+            else:
+                return  # 数据量不足，继续等待
+
         current_price = self.data.close[0]
         available_cash = self.broker.getcash()
 
@@ -86,9 +92,8 @@ def get_realtime_data(symbol, stop_event):
     min_period = 20  # 最小数据周期
     while not stop_event.is_set():
         try:
-            # 获取当前日期
-            today = pd.Timestamp.now().strftime('%Y%m%d')
-            df = pro.daily(ts_code=symbol, start_date=today, end_date=today)
+            today = datetime.now().strftime('%Y%m%d')
+            df = pro.daily(ts_code=symbol, trade_date=today)
             if not df.empty:
                 data = df.iloc[0]
                 item = {
