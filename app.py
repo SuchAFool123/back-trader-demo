@@ -1,5 +1,4 @@
 import eventlet
-
 eventlet.monkey_patch()
 
 from flask import Flask, render_template, request, send_from_directory
@@ -26,7 +25,6 @@ STRATEGIES = {
     'macd': MACDStrategy
 }
 
-
 def get_historical_data(symbol):
     end_date = datetime.now().strftime('%Y%m%d')
     start_date = (datetime.now() - timedelta(days=365)).strftime('%Y%m%d')
@@ -38,9 +36,6 @@ def get_historical_data(symbol):
     df['datetime'] = pd.to_datetime(df['trade_date'])
     df.set_index('datetime', inplace=True)
     return df
-
-
-# ... 现有代码 ...
 
 def run_backtest(initial_cash, commission, stock_code, strategy_name, send_message_callback):
     cerebro = bt.Cerebro()
@@ -66,42 +61,27 @@ def run_backtest(initial_cash, commission, stock_code, strategy_name, send_messa
             self.initial_value = initial_value
 
         def next(self):
-            total_value = self._owner.broker.getvalue()
-            profit = total_value - self.initial_value
-            self.lines.total_value[0] = total_value
-            self.lines.profit[0] = profit
-            send_message_callback("total_info", f"当前总金额: {total_value:.2f}，总收益: {profit:.2f}")
+            if self._owner.position:
+                if self._owner.position.size < 0:  # 卖出发生
+                    total_value = self._owner.broker.getvalue()
+                    profit = total_value - self.initial_value
+                    send_message_callback("total_info", f"当前总金额: {total_value:.2f}，总收益: {profit:.2f}")
 
     cerebro.addobserver(TradeObserver)
 
-    cerebro.run()
-    final_value = cerebro.broker.getvalue()
-    profit = final_value - initial_value
-    send_message_callback("total_info", f"当前总金额: {final_value:.2f}，总收益: {profit:.2f}")
-    return final_value, profit
-
-    # ... 现有代码 ...
-
-    def on_trade(trade):
-        if trade.isclosed:
-            total_value = cerebro.broker.getvalue()
-            profit = total_value - initial_value
-            send_message_callback("total_info", f"当前总金额: {total_value:.2f}，总收益: {profit:.2f}")
-
-    cerebro.addobserver(bt.observers.Trades)
-    cerebro.addcallback('on_trade', on_trade)
+    # 发送历史数据
+    data_str = data.to_csv(sep='\t', na_rep='nan')
+    send_message_callback("historical_data", data_str)
 
     cerebro.run()
     final_value = cerebro.broker.getvalue()
     profit = final_value - initial_value
     send_message_callback("total_info", f"当前总金额: {final_value:.2f}，总收益: {profit:.2f}")
     return final_value, profit
-
 
 @app.route('/')
 def index():
     return render_template('app.html')
-
 
 @app.route('/backtest')
 def backtest():
@@ -117,12 +97,10 @@ def backtest():
     socketio.emit('stop_info', f"当前总金额: {final_value:.2f}，总收益: {profit:.2f}")
     return "Backtest completed"
 
-
 # 定义路由来服务 style.css 文件
 @app.route('/style.css')
 def serve_css():
     return send_from_directory('templates', 'style.css')
-
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)

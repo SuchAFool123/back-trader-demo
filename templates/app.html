@@ -7,11 +7,24 @@
     <title>Backtrader 交易机器人管理端</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+    <style>
+        .container {
+            display: flex;
+        }
+
+        .box {
+            flex: 1;
+            margin: 10px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+        }
+    </style>
 </head>
 
 <body>
     <h1>Backtrader 交易机器人管理端</h1>
-    <div id="stop-info"></div>
     <div class="input-group">
         <label for="strategy">交易策略:</label>
         <select id="strategy">
@@ -29,13 +42,18 @@
         <button id="startButton">启动机器人</button>
         <button id="stopButton" disabled>停止机器人</button>
     </div>
-    <textarea id="historical-trades" readonly></textarea>
+    <div class="container">
+        <div class="box" id="historical-data-box"></div>
+        <div class="box" id="trade-info-box"></div>
+    </div>
+    <div id="total-info">当前总金额: 0.00，总收益: 0.00</div>
 
     <script>
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
-        const historicalTrades = document.getElementById('historical-trades');
-        const stopInfoDiv = document.getElementById('stop-info');
+        const historicalDataBox = document.getElementById('historical-data-box');
+        const tradeInfoBox = document.getElementById('trade-info-box');
+        const totalInfoDiv = document.getElementById('total-info');
 
         const socket = io();
 
@@ -60,15 +78,18 @@
             // 停止逻辑暂时省略
         });
 
-        socket.on('trade_info', (message) => {
-            historicalTrades.value += message + '\n';
+        socket.on('historical_data', (message) => {
+            historicalDataBox.textContent = message;
         });
 
-        socket.on('stop_info', (message) => {
-            stopInfoDiv.textContent = message;
+        socket.on('trade_info', (message) => {
+            tradeInfoBox.textContent += message + '\n';
+        });
+
+        socket.on('total_info', (message) => {
+            totalInfoDiv.textContent = message;
         });
     </script>
 </body>
 
 </html>
-
