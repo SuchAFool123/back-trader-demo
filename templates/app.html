@@ -1,105 +1,53 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Backtrader 交易机器人管理端</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
-            background-color: #0d1117;
-            color: #c9d1d9;
-            margin: 0;
-            padding: 20px;
-        }
-
-        h1 {
-            color: #58a6ff;
-            text-align: center;
-            margin-bottom: 30px;
-            font-size: 24px;
-        }
-
-        .input-group {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .input-group label {
-            margin-right: 10px;
-            font-size: 14px;
-        }
-
-        .input-group input {
-            padding: 8px 12px;
-            border: 1px solid #30363d;
-            border-radius: 6px;
-            background-color: #0d1117;
-            color: #c9d1d9;
-            margin-right: 20px;
-            outline: none;
-            transition: border-color 0.2s ease-in-out;
-        }
-
-        .input-group input:focus {
-            border-color: #58a6ff;
-        }
-
-        button {
-            padding: 8px 16px;
-            background-color: #238636;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            margin: 0 5px;
-            transition: background-color 0.2s ease-in-out;
-        }
-
-        button:hover {
-            background-color: #2ea043;
-        }
-
-        button:disabled {
-            background-color: #30363d;
-            cursor: not-allowed;
-        }
-
-        #log {
-            margin-top: 30px;
-            border: 1px solid #30363d;
-            padding: 20px;
-            height: 300px;
-            overflow-y: auto;
-            background-color: #161b22;
-            border-radius: 6px;
-            font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
-            font-size: 14px;
-        }
-
-        #log p {
-            margin: 5px 0;
-        }
-    </style>
+    <!-- 引入 CSS 文件 -->
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <h1>Backtrader 交易机器人管理端</h1>
-    <div class="input-group">
-        <label for="initialCash">初始资金:</label>
-        <input type="number" id="initialCash" value="100000" />
-        <label for="commission">佣金比例:</label>
-        <input type="number" id="commission" value="0.001" step="0.0001" />
-        <label for="stockCode">股票代码:</label>
-        <input type="text" id="stockCode" value="000858.SZ" />
+    <!-- 左侧导航区域 -->
+    <div class="nav">
+        <ul>
+            <li><a href="#" data-strategy="smacross">双均线交叉</a></li>
+            <li><a href="#" data-strategy="macd">MACD</a></li>
+        </ul>
     </div>
-    <div class="button-group">
-        <button id="startButton">启动机器人</button>
+    <!-- 右侧内容区域 -->
+    <div class="content">
+        <h1>Backtrader 交易机器人管理端</h1>
+
+        <div class="input-group">
+            <label for="strategy">交易策略:</label>
+            <select id="strategy">
+                <option value="smacross">双均线交叉</option>
+                <option value="macd">MACD</option>
+            </select>
+
+            <label for="initialCash">初始资金:</label>
+            <input type="number" id="initialCash" value="100000">
+
+            <label for="commission">佣金比例:</label>
+            <input type="number" id="commission" value="0.001" step="0.0001">
+
+            <label for="stockCode">股票代码:</label>
+            <input type="text" id="stockCode" value="000858.SZ">
+        </div>
+
+        <div class="button-group">
+            <button id="startButton">启动机器人</button>
+            <span id="profit-info">当前总金额: <span id="total-amount">100000</span>，收益: <span id="profit">0</span></span>
+        </div>
+
+        <div id="log">日志将显示在这里...</div>
+
+        <!-- 将 historical-data-textarea 改为交易信息区域 -->
+        <textarea id="trade-info" readonly></textarea>
     </div>
-    <div id="log">日志将显示在这里...</div>
 
     <script>
         const startButton = document.getElementById('startButton');
@@ -107,19 +55,38 @@
         const initialCashInput = document.getElementById('initialCash');
         const commissionInput = document.getElementById('commission');
         const stockCodeInput = document.getElementById('stockCode');
+        const strategySelect = document.getElementById('strategy');
         const sockets = [];
+        const tradeInfoTextarea = document.getElementById('trade-info');
+        const navLinks = document.querySelectorAll('.nav a');
+        const profitInfo = document.getElementById('profit-info');
+        const totalAmountSpan = document.getElementById('total-amount');
+        const profitSpan = document.getElementById('profit');
+
+        // 导航栏链接点击事件
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const strategy = link.dataset.strategy;
+                strategySelect.value = strategy;
+            });
+        });
 
         startButton.addEventListener('click', () => {
+            const strategy = strategySelect.value;
             const initialCash = parseFloat(initialCashInput.value);
             const commission = parseFloat(commissionInput.value);
             const stockCode = stockCodeInput.value;
+            totalAmountSpan.textContent = initialCash;
+            profitSpan.textContent = 0;
 
-            const url = `ws://localhost:5000/ws?initialCash=${initialCash}&commission=${commission}&stockCode=${stockCode}`;
+            const url = `ws://${window.location.host}/ws?strategy=${strategy}&initialCash=${initialCash}&commission=${commission}&stockCode=${stockCode}`;
             const socket = new WebSocket(url);
             sockets.push(socket);
 
             const logEntry = document.createElement('p');
-            logEntry.textContent = `机器人 (初始资金: ${initialCash}, 佣金比例: ${commission}, 股票代码: ${stockCode}) 已启动...`;
+            logEntry.textContent = `机器人 (策略: ${strategy}, 初始资金: ${initialCash}, 佣金比例: ${commission}, 股票代码: ${stockCode}) 已启动...`;
+
             const stopButton = document.createElement('button');
             stopButton.textContent = '停止机器人';
             stopButton.addEventListener('click', () => {
@@ -127,27 +94,37 @@
                     socket.close();
                 }
             });
+
             log.appendChild(logEntry);
             log.appendChild(stopButton);
 
             socket.onopen = () => {
                 logEntry.textContent += ' 连接成功';
             };
+
             socket.onmessage = (event) => {
+                const message = event.data;
+                if (message.startsWith('PROFIT_INFO:')) {
+                    const profitData = message.replace('PROFIT_INFO:', '');
+                    const [totalAmount, profit] = profitData.split('，').map(Number);
+                    totalAmountSpan.textContent = totalAmount;
+                    profitSpan.textContent = profit;
+                } else if (message.includes('买入') || message.includes('卖出')) {
+                    // 如果是买入或卖出信息，显示在交易信息区域
+                    tradeInfoTextarea.value += message + '\n';
+                }
                 const messageLog = document.createElement('p');
-                messageLog.textContent = `机器人 (初始资金: ${initialCash}, 佣金比例: ${commission}, 股票代码: ${stockCode}): ${event.data}`;
+                messageLog.textContent = `机器人 (策略: ${strategy}, 初始资金: ${initialCash}, 佣金比例: ${commission}, 股票代码: ${stockCode}): ${message}`;
                 log.appendChild(messageLog);
             };
+
             socket.onclose = () => {
-                logEntry.textContent = `机器人 (初始资金: ${initialCash}, 佣金比例: ${commission}, 股票代码: ${stockCode}) 已停止...`;
+                logEntry.textContent = `机器人 (策略: ${strategy}, 初始资金: ${initialCash}, 佣金比例: ${commission}, 股票代码: ${stockCode}) 已停止...`;
                 stopButton.disabled = true;
-                const index = sockets.indexOf(socket);
-                if (index > -1) {
-                    sockets.splice(index, 1);
-                }
+                sockets.splice(sockets.indexOf(socket), 1);
             };
         });
     </script>
 </body>
 
-</html>    
+</html>
