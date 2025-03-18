@@ -1,12 +1,10 @@
-from flask import Flask, render_template, request,send_from_directory
+from flask import Flask, render_template, request, send_from_directory
 from flask_sock import Sock
 import backtrader as bt
 import tushare as ts
-import time
 import pandas as pd
 import threading
-from datetime import datetime, timedelta
-from strategies.simple_sma_cross import SimpleSMACrossStrategy  # 引入策略
+from strategies.simple_sma_cross import SimpleSMACrossStrategy
 
 app = Flask(__name__, template_folder='./templates/')
 sock = Sock(app)
@@ -31,7 +29,7 @@ def get_historical_data(symbol, start_date, end_date):
 
 def run_backtest(initial_cash, commission, stock_code, start_date, end_date):
     cerebro = bt.Cerebro()
-    cerebro.addstrategy(SimpleSMACrossStrategy)  # 使用新策略
+    cerebro.addstrategy(SimpleSMACrossStrategy)
 
     data = get_historical_data(stock_code, start_date, end_date)
     data_feed = bt.feeds.PandasData(dataname=data)
@@ -68,6 +66,31 @@ def index():
 @app.route('/style.css')
 def serve_css():
     return send_from_directory('templates', 'style.css')
+
+# ... 其他代码 ...
+
+@sock.route('/ws')
+def echo(ws):
+    initial_cash = float(request.args.get('initialCash', 100000))
+    commission = float(request.args.get('commission', 0.001))
+    stock_code = request.args.get('stockCode', '000858.SZ')
+    connections.append(ws)
+    stop_event = threading.Event()
+    stop_events[ws] = stop_event
+    try:
+        threading.Thread(target=run_trading_bot, args=(initial_cash, commission, stock_code, stop_event)).start()
+        while True:
+            data = ws.receive()
+    except Exception:
+        pass
+    finally:
+        stop_event.set()
+        if ws in connections:
+            connections.remove(ws)
+        if ws in stop_events:
+            del stop_events[ws]
+
+# ... 其他代码 ...
 
 
 if __name__ == '__main__':

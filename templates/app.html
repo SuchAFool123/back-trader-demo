@@ -1,53 +1,39 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Backtrader 交易机器人管理端</title>
-    <!-- 引入 CSS 文件 -->
     <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-    <!-- 左侧导航区域 -->
-    <div class="nav">
-        <ul>
-            <li><a href="#" data-strategy="smacross">双均线交叉</a></li>
-            <li><a href="#" data-strategy="macd">MACD</a></li>
-        </ul>
+    <h1>Backtrader 交易机器人管理端</h1>
+
+    <div class="input-group">
+        <label for="strategy">交易策略:</label>
+        <select id="strategy">
+            <option value="smacross">双均线交叉</option>
+            <option value="macd">MACD</option>
+        </select>
+
+        <label for="initialCash">初始资金:</label>
+        <input type="number" id="initialCash" value="100000">
+
+        <label for="commission">佣金比例:</label>
+        <input type="number" id="commission" value="0.001" step="0.0001">
+
+        <label for="stockCode">股票代码:</label>
+        <input type="text" id="stockCode" value="000858.SZ">
     </div>
-    <!-- 右侧内容区域 -->
-    <div class="content">
-        <h1>Backtrader 交易机器人管理端</h1>
 
-        <div class="input-group">
-            <label for="strategy">交易策略:</label>
-            <select id="strategy">
-                <option value="smacross">双均线交叉</option>
-                <option value="macd">MACD</option>
-            </select>
-
-            <label for="initialCash">初始资金:</label>
-            <input type="number" id="initialCash" value="100000">
-
-            <label for="commission">佣金比例:</label>
-            <input type="number" id="commission" value="0.001" step="0.0001">
-
-            <label for="stockCode">股票代码:</label>
-            <input type="text" id="stockCode" value="000858.SZ">
-        </div>
-
-        <div class="button-group">
-            <button id="startButton">启动机器人</button>
-            <span id="profit-info">当前总金额: <span id="total-amount">100000</span>，收益: <span id="profit">0</span></span>
-        </div>
-
-        <div id="log">日志将显示在这里...</div>
-
-        <!-- 将 historical-data-textarea 改为交易信息区域 -->
-        <textarea id="trade-info" readonly></textarea>
+    <div class="button-group">
+        <button id="startButton">启动机器人</button>
     </div>
+
+    <div id="log">日志将显示在这里...</div>
+
+    <textarea id="historical-data-textarea" readonly></textarea>
+    <textarea id="profit-info-textarea" readonly></textarea>
 
     <script>
         const startButton = document.getElementById('startButton');
@@ -57,74 +43,47 @@
         const stockCodeInput = document.getElementById('stockCode');
         const strategySelect = document.getElementById('strategy');
         const sockets = [];
-        const tradeInfoTextarea = document.getElementById('trade-info');
-        const navLinks = document.querySelectorAll('.nav a');
-        const profitInfo = document.getElementById('profit-info');
-        const totalAmountSpan = document.getElementById('total-amount');
-        const profitSpan = document.getElementById('profit');
-
-        // 导航栏链接点击事件
-        navLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const strategy = link.dataset.strategy;
-                strategySelect.value = strategy;
-            });
-        });
 
         startButton.addEventListener('click', () => {
             const strategy = strategySelect.value;
             const initialCash = parseFloat(initialCashInput.value);
             const commission = parseFloat(commissionInput.value);
             const stockCode = stockCodeInput.value;
-            totalAmountSpan.textContent = initialCash;
-            profitSpan.textContent = 0;
 
-            const url = `ws://${window.location.host}/ws?strategy=${strategy}&initialCash=${initialCash}&commission=${commission}&stockCode=${stockCode}`;
+            const url = `ws://localhost:5000/ws?strategy=${strategy}&initialCash=${initialCash}&commission=${commission}&stockCode=${stockCode}`;
             const socket = new WebSocket(url);
             sockets.push(socket);
 
             const logEntry = document.createElement('p');
             logEntry.textContent = `机器人 (策略: ${strategy}, 初始资金: ${initialCash}, 佣金比例: ${commission}, 股票代码: ${stockCode}) 已启动...`;
-
-            const stopButton = document.createElement('button');
-            stopButton.textContent = '停止机器人';
-            stopButton.addEventListener('click', () => {
-                if (socket.readyState === WebSocket.OPEN) {
-                    socket.close();
-                }
-            });
-
             log.appendChild(logEntry);
-            log.appendChild(stopButton);
 
             socket.onopen = () => {
+                console.log('WebSocket 连接成功');
                 logEntry.textContent += ' 连接成功';
             };
 
             socket.onmessage = (event) => {
-                const message = event.data;
-                if (message.startsWith('PROFIT_INFO:')) {
-                    const profitData = message.replace('PROFIT_INFO:', '');
-                    const [totalAmount, profit] = profitData.split('，').map(Number);
-                    totalAmountSpan.textContent = totalAmount;
-                    profitSpan.textContent = profit;
-                } else if (message.includes('买入') || message.includes('卖出')) {
-                    // 如果是买入或卖出信息，显示在交易信息区域
-                    tradeInfoTextarea.value += message + '\n';
-                }
+                console.log('收到消息:', event.data);
                 const messageLog = document.createElement('p');
-                messageLog.textContent = `机器人 (策略: ${strategy}, 初始资金: ${initialCash}, 佣金比例: ${commission}, 股票代码: ${stockCode}): ${message}`;
+                messageLog.textContent = `机器人 (${strategy}策略): ${event.data}`;
                 log.appendChild(messageLog);
+
+                // 将收到的历史数据显示在 textarea 中
+                const historicalDataTextarea = document.getElementById('historical-data-textarea');
+                historicalDataTextarea.value += event.data + '\n';
+            };
+
+            socket.onerror = (error) => {
+                console.error('WebSocket 连接出错:', error);
+                logEntry.textContent += ' 连接出错，请检查控制台日志';
             };
 
             socket.onclose = () => {
                 logEntry.textContent = `机器人 (策略: ${strategy}, 初始资金: ${initialCash}, 佣金比例: ${commission}, 股票代码: ${stockCode}) 已停止...`;
-                stopButton.disabled = true;
-                sockets.splice(sockets.indexOf(socket), 1);
             };
         });
     </script>
 </body>
-
 </html>
+
