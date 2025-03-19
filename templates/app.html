@@ -20,6 +20,11 @@
             height: 300px;
             overflow-y: auto;
         }
+
+        .box-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
     </style>
 </head>
 
@@ -43,8 +48,14 @@
         <button id="stopButton" disabled>停止机器人</button>
     </div>
     <div class="container">
-        <div class="box" id="historical-data-box"></div>
-        <div class="box" id="trade-info-box"></div>
+        <div class="box">
+            <div class="box-title">历史数据</div>
+            <div id="historical-data-box"></div>
+        </div>
+        <div class="box">
+            <div class="box-title">交易信息</div>
+            <div id="trade-info-box"></div>
+        </div>
     </div>
     <div id="total-info">当前总金额: 0.00，总收益: 0.00</div>
 
@@ -79,11 +90,19 @@
         });
 
         socket.on('historical_data', (message) => {
-            historicalDataBox.textContent = message;
+            // 按行分割并按行输出
+            const lines = message.split('\n');
+            lines.forEach(line => {
+                const p = document.createElement('p');
+                p.textContent = line;
+                historicalDataBox.appendChild(p);
+            });
         });
 
         socket.on('trade_info', (message) => {
-            tradeInfoBox.textContent += message + '\n';
+            const p = document.createElement('p');
+            p.textContent = message;
+            tradeInfoBox.appendChild(p);
         });
 
         socket.on('total_info', (message) => {
