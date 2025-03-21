@@ -1,22 +1,16 @@
 import backtrader as bt
 
-
 class SMAStrategy(bt.Strategy):
-    params = (
-        ('short_period', 5),
-        ('long_period', 20)
-    )
-
-    def __init__(self):
-        self.short_sma = bt.indicators.SimpleMovingAverage(
-            self.data.close, period=self.params.short_period)
-        self.long_sma = bt.indicators.SimpleMovingAverage(
-            self.data.close, period=self.params.long_period)
-        self.crossover = bt.indicators.CrossOver(self.short_sma, self.long_sma)
+    def __init__(self, send_message_callback=None):
+        self.send_message_callback = send_message_callback
+        self.sma = bt.indicators.SimpleMovingAverage(self.data.close, period=10)
 
     def next(self):
-        if not self.position:
-            if self.crossover > 0:
-                self.buy()
-        elif self.crossover < 0:
+        if self.data.close[0] > self.sma[0] and not self.position:
+            self.buy()
+            if self.send_message_callback:
+                self.send_message_callback("trade_info", f"SMAStrategy 买入信号触发")
+        elif self.data.close[0] < self.sma[0] and self.position:
             self.sell()
+            if self.send_message_callback:
+                self.send_message_callback("trade_info", f"SMAStrategy 卖出信号触发")

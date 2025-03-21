@@ -32,9 +32,10 @@
     <h1>Backtrader 交易机器人管理端</h1>
     <div class="input-group">
         <label for="strategy">交易策略:</label>
-        <select id="strategy">
-            <option value="default">默认策略</option>
-            <option value="macd">MACD 策略</option>
+        <select id="strategy" name="strategy">
+            {% for strategy in strategies %}
+                <option value="{{ strategy }}">{{ strategy }}</option>
+            {% endfor %}
         </select>
         <label for="initialCash">初始资金:</label>
         <input type="number" id="initialCash" value="100000">

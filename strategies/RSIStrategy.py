@@ -1,21 +1,16 @@
 import backtrader as bt
 
-
 class RSIStrategy(bt.Strategy):
-    params = (
-        ('period', 14),
-        ('oversold', 30),
-        ('overbought', 70)
-    )
-
-    def __init__(self):
-        self.rsi = bt.indicators.RelativeStrengthIndex(
-            self.data.close, period=self.params.period)
+    def __init__(self, send_message_callback=None):
+        self.send_message_callback = send_message_callback
+        self.rsi = bt.indicators.RSI(self.data.close)
 
     def next(self):
-        if not self.position:
-            if self.rsi < self.params.oversold:
-                self.buy()
-        else:
-            if self.rsi > self.params.overbought:
-                self.sell()
+        if self.rsi < 30 and not self.position:
+            self.buy()
+            if self.send_message_callback:
+                self.send_message_callback("trade_info", f"RSIStrategy 买入信号触发")
+        elif self.rsi > 70 and self.position:
+            self.sell()
+            if self.send_message_callback:
+                self.send_message_callback("trade_info", f"RSIStrategy 卖出信号触发")
